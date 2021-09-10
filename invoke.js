@@ -8,7 +8,10 @@
 /* eslint-disable */
 const { Gateway, Wallets } = require('fabric-network');
 const fs = require('fs');
-const path = require('path');
+const path = require('path')
+const {Client, User} = require('fabric-common');
+const sendProposal = require('./offline_signing').sendProposal
+// const {User} = require('User')
 
 async function main() {
     try {
@@ -38,6 +41,48 @@ async function main() {
 
         // Get the contract from the network.
         const contract = network.getContract('pki');
+
+
+
+
+//=======================STAR OF OFFLINE SIGNING========================================
+let channel = network.getChannel('mychannel')
+// let user = network.getUser('appUser')
+let client = gateway.client
+// console.log(client)
+
+// console.log(channel)
+function getUser(){
+    let user;
+    const certpath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','signcerts','cert.pem')
+    let pemCert = fs.readFileSync(certpath,"utf8")
+    const privKeypath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','keystore','d4c8d71a8e829bd0845d7236d64143354b4bb37def3ade88e08c404531de8b0b_sk')
+    let privateKeyPEM = fs.readFileSync(privKeypath,"utf8")
+
+    user = User.createUser('admin','adminpw','Org1MSP',pemCert,privateKeyPEM)
+    return {user,privateKeyPEM}
+}
+let user =getUser();
+    // console.log(user)
+    let proposal ={
+            client : client,
+                user : user.user,
+                privateKeyPEM : user.privateKeyPEM,
+                channel : channel,
+                chaincode : 'pki',
+                fcn : 'queryAllCerts',
+                args : []
+    }
+// console.log(channel.getEndorsers())
+sendProposal(proposal)
+
+
+
+
+//***************************END OF OFFLINE SIGNING ********************************** */
+
+
+
 
 //======================== DATA STRUCTURES =======================
 const UserDomains = {
@@ -96,23 +141,24 @@ const verifiableDomains ={
             UID : 'U2'
         }
 }
-//**************************END OF DATA STRUCTRES */
+//**************************END OF DATA STRUCTRES **************************************/
+
         // Submit the specified transaction.
         // createCar transaction - requires 5 argument, ex: ('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom')
         // changeCarOwner transaction - requires 2 args , ex: ('changeCarOwner', 'CAR12', 'Dave')
         // await contract.submitTransaction('createCert', 'Cert1', 'xyz5.com', 'Lahore', 'xyz5');
         // console.log('Transaction has been submitted');
-        await contract.submitTransaction('writeData','verifiedDomains',JSON.stringify(verifiedDomains));
-        console.log('verifiedDomains Pushed in blockchain');
-        await contract.submitTransaction('writeData','UserDomains',JSON.stringify(UserDomains));
-        console.log('UserDomains Pushed in blockchain');
-        await contract.submitTransaction('writeData','allVerifiedDomains',JSON.stringify(allVerifiedDomains));
-        console.log('allVerifiedDomains Pushed in blockchain');
-        await contract.submitTransaction('writeData','verifiableDomains',JSON.stringify(verifiableDomains));
-        console.log('verifiableDomains Pushed in blockchain');
+        // await contract.submitTransaction('writeData','verifiedDomains',JSON.stringify(verifiedDomains));
+        // console.log('verifiedDomains Pushed in blockchain');
+        // await contract.submitTransaction('writeData','UserDomains',JSON.stringify(UserDomains));
+        // console.log('UserDomains Pushed in blockchain');
+        // await contract.submitTransaction('writeData','allVerifiedDomains',JSON.stringify(allVerifiedDomains));
+        // console.log('allVerifiedDomains Pushed in blockchain');
+        // await contract.submitTransaction('writeData','verifiableDomains',JSON.stringify(verifiableDomains));
+        // console.log('verifiableDomains Pushed in blockchain');
 
-        let response = await contract.submitTransaction('revoke','domain1','U2')
-        console.log(response.toString('ascii'))
+        // let response = await contract.submitTransaction('revoke','domain1','U2')
+        // console.log(response.toString('ascii'))
 
         // Disconnect from the gateway.
         await gateway.disconnect();
