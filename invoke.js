@@ -10,7 +10,7 @@ const { Gateway, Wallets } = require('fabric-network');
 const fs = require('fs');
 const path = require('path')
 const {Client, User} = require('fabric-common');
-const sendProposal = require('./offline_signing').sendProposal
+const sendProposal = require('./lib/index.js').sendProposal
 // const {User} = require('User')
 
 async function main() {
@@ -41,6 +41,11 @@ async function main() {
 
         // Get the contract from the network.
         const contract = network.getContract('pki');
+        // console.log(contract)
+        // const userIdentity = await wallet.get('appUser');
+        // if (userIdentity) {
+        //     console.log(userIdentity);
+        // }
 
 
 
@@ -54,16 +59,19 @@ let client = gateway.client
 // console.log(channel)
 function getUser(){
     let user;
+    // const certpath = path.resolve('..', '..', 'pki', 'javascript', 'wallet', 'appUser.id')
+    // let pemCert = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.certificate
     const certpath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','signcerts','cert.pem')
     let pemCert = fs.readFileSync(certpath,"utf8")
-    const privKeypath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','keystore','d4c8d71a8e829bd0845d7236d64143354b4bb37def3ade88e08c404531de8b0b_sk')
+    const privKeypath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','keystore','603e6247a06a66dd66c0ac415f9c5cd55ab2052f0e49c6a6b085fb13aabe4dcc_sk')
     let privateKeyPEM = fs.readFileSync(privKeypath,"utf8")
-
-    user = User.createUser('admin','adminpw','Org1MSP',pemCert,privateKeyPEM)
+    // let privateKeyPEM = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.privateKey
+    user = User.createUser('org1admin','','Org1MSP',pemCert,privateKeyPEM)
     return {user,privateKeyPEM}
 }
+
 let user =getUser();
-    // console.log(user)
+    // console.log(user.user)
     let proposal ={
             client : client,
                 user : user.user,
@@ -74,7 +82,7 @@ let user =getUser();
                 args : []
     }
 // console.log(channel.getEndorsers())
-sendProposal(proposal)
+// sendProposal(proposal)
 
 
 
@@ -155,13 +163,16 @@ const verifiableDomains ={
         // await contract.submitTransaction('writeData','allVerifiedDomains',JSON.stringify(allVerifiedDomains));
         // console.log('allVerifiedDomains Pushed in blockchain');
         // await contract.submitTransaction('writeData','verifiableDomains',JSON.stringify(verifiableDomains));
-        // console.log('verifiableDomains Pushed in blockchain');
+        console.log('verifiableDomains Pushed in blockchain');
+        sendProposal(proposal, async (response)=>{
+            await gateway.disconnect();
+        })
 
         // let response = await contract.submitTransaction('revoke','domain1','U2')
         // console.log(response.toString('ascii'))
 
         // Disconnect from the gateway.
-        await gateway.disconnect();
+        // await gateway.disconnect();
 
     } catch (error) {
         console.error(`Failed to submit transaction: ${error}`);
