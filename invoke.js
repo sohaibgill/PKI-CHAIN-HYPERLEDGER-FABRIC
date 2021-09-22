@@ -9,7 +9,7 @@
 const { Gateway, Wallets } = require('fabric-network');
 const fs = require('fs');
 const path = require('path')
-const {Client, User} = require('fabric-common');
+const {Client, User,ProposalResponse,Proposal,Commit} = require('fabric-common');
 const sendProposal = require('./lib/index.js').sendProposal
 // const {User} = require('User')
 
@@ -31,7 +31,6 @@ async function main() {
             console.log('Run the registerUser.js application before retrying');
             return;
         }
-
         // Create a new gateway for connecting to our peer node.
         const gateway = new Gateway();
         await gateway.connect(ccp, { wallet, identity: 'appUser', discovery: { enabled: true, asLocalhost: true } });
@@ -59,18 +58,18 @@ let client = gateway.client
 // console.log(channel)
 function getUser(){
     let user;
-    // const certpath = path.resolve('..', '..', 'pki', 'javascript', 'wallet', 'appUser.id')
-    // let pemCert = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.certificate
-    const certpath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','signcerts','cert.pem')
-    let pemCert = fs.readFileSync(certpath,"utf8")
-    const privKeypath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','keystore','603e6247a06a66dd66c0ac415f9c5cd55ab2052f0e49c6a6b085fb13aabe4dcc_sk')
-    let privateKeyPEM = fs.readFileSync(privKeypath,"utf8")
-    // let privateKeyPEM = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.privateKey
-    user = User.createUser('org1admin','','Org1MSP',pemCert,privateKeyPEM)
+    const certpath = path.resolve('..', '..', 'pki', 'javascript', 'wallet', 'appUser.id')
+    let pemCert = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.certificate
+    // const certpath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','signcerts','cert.pem')
+    // let pemCert = fs.readFileSync(certpath,"utf8")
+    // const privKeypath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','keystore','c76e381734df2320b10b363a127cf283e90ae8c10307e759ae3f1c16aa628ce1_sk')
+    // let privateKeyPEM = fs.readFileSync(privKeypath,"utf8")
+    let privateKeyPEM = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.privateKey
+    user = User.createUser('appUser','','Org1MSP',pemCert,privateKeyPEM)
     return {user,privateKeyPEM}
 }
-
-let user =getUser();
+// const handler = discovery.newHandler();
+let user = getUser();
     // console.log(user.user)
     let proposal ={
             client : client,
@@ -78,13 +77,46 @@ let user =getUser();
                 privateKeyPEM : user.privateKeyPEM,
                 channel : channel,
                 chaincode : 'pki',
-                fcn : 'queryAllCerts',
-                args : []
+                fcn : 'queryCerts',
+                args : ["Cert0"]
     }
 // console.log(channel.getEndorsers())
-// sendProposal(proposal)
+let  ProposalResponse = await sendProposal(proposal)
+// console.log(ProposalResponse.responses)
+console.log("separater")
+let endorsement = ProposalResponse.responses[1].endorsement
+// endorsement = Buffer.from(endorsement).toString('ascii')
+let payload1 = ProposalResponse.responses[0].response.payload
+let payload2 = ProposalResponse.responses[1].response.payload
+let payload = ProposalResponse.responses[1].payload
+console.log(`payload1 : ${Buffer.from(payload1).toString('utf-8')}`)
+console.log(`payload2 : ${Buffer.from(payload2).toString('ascii')}`)
+console.log( `Payload : ${Buffer.from(payload).toString('ascii')}`)
+console.log(`Endorsement `)
+console.log(endorsement)
+let commitment = channel.newCommit('pki')
+let idx = client.newIdentityContext(user.user);
+// let commiter = new Commit('pki','mychannel')
+// // console.log(commiter)
+// // console.log(commitment)
+let commit = commitment.build(idx,{endorsement:endorsement.signature})
+// console.log(channel.getCommitters())
 
 
+// commitment._endorsement = ProposalResponse
+// console.log(commitment)
+// var proposalDigest = user.user.getCryptoSuite().hash(commit.toString(), { algorithm: 'SHA2' })
+// let ordererResponse = await commitment.send({ targets: channel.getCommitters() })
+
+// let responses  =  commitment.send({ targets: channel.getCommitters() })
+// const p1 = new Proposal('pki','mychannel')
+// console.log(p1.verifyProposalResponse({ProposalResponse}))
+
+// let commitProposal = {
+//     proposalResponses,
+//     proposal
+// }
+// console.log(channel.getCommitter())
 
 
 //***************************END OF OFFLINE SIGNING ********************************** */
@@ -163,16 +195,17 @@ const verifiableDomains ={
         // await contract.submitTransaction('writeData','allVerifiedDomains',JSON.stringify(allVerifiedDomains));
         // console.log('allVerifiedDomains Pushed in blockchain');
         // await contract.submitTransaction('writeData','verifiableDomains',JSON.stringify(verifiableDomains));
-        console.log('verifiableDomains Pushed in blockchain');
-        sendProposal(proposal, async (response)=>{
-            await gateway.disconnect();
-        })
+        // console.log('verifiableDomains Pushed in blockchain');
+        // await sendProposal(proposal, async (response)=>{
+        //     // await gateway.disconnect();
+        //     console.log("proposal sent")
+        // })
 
         // let response = await contract.submitTransaction('revoke','domain1','U2')
         // console.log(response.toString('ascii'))
 
         // Disconnect from the gateway.
-        // await gateway.disconnect();
+        await gateway.disconnect();
 
     } catch (error) {
         console.error(`Failed to submit transaction: ${error}`);
