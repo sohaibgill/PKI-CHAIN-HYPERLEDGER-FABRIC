@@ -1,178 +1,201 @@
 /*
- * Copyright IBM Corp. All Rights Reserved.
- *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 'use strict';
-/* eslint-disable */
-const { Gateway, Wallets } = require('fabric-network');
+
+const { FileSystemWallet, Gateway } = require('fabric-network');
+const path = require('path');
 const fs = require('fs');
-const path = require('path')
-const {Client, User} = require('fabric-common');
-const sendProposal = require('./lib/index.js').sendProposal
-// const {User} = require('User')
+// const tape = require('tape');
+// const _test = require('tape-promise').default;
+// const test = _test(tape);
+const FabricCAService = require('fabric-ca-client');
+const Client = require('fabric-client');
+const hash = require('fabric-client/lib/hash');
+
+const jsrsa = require('jsrsasign');
+const {KEYUTIL} = jsrsa;
+const elliptic = require('elliptic');
+const EC = elliptic.ec;
+
+const ccpPath = path.resolve(__dirname, '..', '..', 'first-network', 'connection-org1.json');
 
 async function main() {
     try {
-        // load the network configuration
-        const ccpPath = path.resolve(__dirname, '..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com', 'connection-org1.json');
-        let ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
 
         // Create a new file system based wallet for managing identities.
         const walletPath = path.join(process.cwd(), 'wallet');
-        const wallet = await Wallets.newFileSystemWallet(walletPath);
+        const wallet = new FileSystemWallet(walletPath);
         console.log(`Wallet path: ${walletPath}`);
 
         // Check to see if we've already enrolled the user.
-        const identity = await wallet.get('appUser');
-        if (!identity) {
-            console.log('An identity for the user "appUser" does not exist in the wallet');
+        const userExists = await wallet.exists('user1');
+        if (!userExists) {
+            console.log('An identity for the user "user1" does not exist in the wallet');
             console.log('Run the registerUser.js application before retrying');
             return;
         }
 
         // Create a new gateway for connecting to our peer node.
         const gateway = new Gateway();
-        await gateway.connect(ccp, { wallet, identity: 'appUser', discovery: { enabled: true, asLocalhost: true } });
+        await gateway.connect(ccpPath, { wallet, identity: 'user1', discovery: { enabled: true, asLocalhost: true } });
 
         // Get the network (channel) our contract is deployed to.
         const network = await gateway.getNetwork('mychannel');
 
         // Get the contract from the network.
-        const contract = network.getContract('pki');
-        // console.log(contract)
-        // const userIdentity = await wallet.get('appUser');
-        // if (userIdentity) {
-        //     console.log(userIdentity);
-        // }
-
-
-
-
-//=======================STAR OF OFFLINE SIGNING========================================
-let channel = network.getChannel('mychannel')
-// let user = network.getUser('appUser')
-let client = gateway.client
-// console.log(client)
-
-// console.log(channel)
-function getUser(){
-    let user;
-    // const certpath = path.resolve('..', '..', 'pki', 'javascript', 'wallet', 'appUser.id')
-    // let pemCert = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.certificate
-    const certpath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','signcerts','cert.pem')
-    let pemCert = fs.readFileSync(certpath,"utf8")
-    const privKeypath = path.resolve('..', '..', 'test-network', 'organizations', 'peerOrganizations', 'org1.example.com','users','Admin@org1.example.com','msp','keystore','603e6247a06a66dd66c0ac415f9c5cd55ab2052f0e49c6a6b085fb13aabe4dcc_sk')
-    let privateKeyPEM = fs.readFileSync(privKeypath,"utf8")
-    // let privateKeyPEM = JSON.parse(fs.readFileSync(certpath,"utf8")).credentials.privateKey
-    user = User.createUser('org1admin','','Org1MSP',pemCert,privateKeyPEM)
-    return {user,privateKeyPEM}
-}
-
-let user =getUser();
-    // console.log(user.user)
-    let proposal ={
-            client : client,
-                user : user.user,
-                privateKeyPEM : user.privateKeyPEM,
-                channel : channel,
-                chaincode : 'pki',
-                fcn : 'queryAllCerts',
-                args : []
-    }
-// console.log(channel.getEndorsers())
-// sendProposal(proposal)
-
-
-
-
-//***************************END OF OFFLINE SIGNING ********************************** */
-
-
-
-
-//======================== DATA STRUCTURES =======================
-const UserDomains = {
-    U1:{
-        revokedDomains:['LSE','UOL'],
-        revokedDomainsCRTHash:['LSEcrt','UOLcrt'],
-        verifiedDomains:['pki','ssl'],
-        unverifiedDomains:['GIKI','UMT']
-    },
-    U2:{
-        revokedDomains:['FAST','LUMS'],
-        revokedDomainsCRTHash:['FASTcrt','LUMScrt'],
-        verifiedDomains:['google','domain1'],
-        unverifiedDomains:['NUST','domain2']
-    }
-}
-const verifiedDomains = {
-    pki:{
-        commonName : 'pki',
-        crtHash : 'pkicrt',
-        UID : 'U1'
-    },
-    ssl:{
-        commonName : 'ssl',
-        crtHash : 'sslcrt',
-        UID : 'U1'
-    },
-    google:{
-        commonName : 'google',
-        crtHash : 'googlecrt',
-        UID : 'U2'
-    },
-    domain1:{
-        commonName : 'domain1',
-        crtHash : 'domain1crt',
-        UID : 'U2'
-    }
-}
-const allVerifiedDomains ={
-    pki : true,
-    google : true,
-    UET : false,
-    GIKI : false
-};
-const verifiableDomains ={
-        GIKI :{
-            commonName : 'GIKI',
-            csrHash : 'GIKIcsr',
-            verificationToken : 'GIKI_token',
-            UID : 'U1'
-        },
-        NUST :{
-            commonName : 'NUST',
-            csrHash : 'NUSTcsr',
-            verificationToken : 'NUST_token',
-            UID : 'U2'
-        }
-}
-//**************************END OF DATA STRUCTRES **************************************/
+        const contract = network.getContract('fabcar');
 
         // Submit the specified transaction.
         // createCar transaction - requires 5 argument, ex: ('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom')
-        // changeCarOwner transaction - requires 2 args , ex: ('changeCarOwner', 'CAR12', 'Dave')
-        // await contract.submitTransaction('createCert', 'Cert1', 'xyz5.com', 'Lahore', 'xyz5');
+        // changeCarOwner transaction - requires 2 args , ex: ('changeCarOwner', 'CAR10', 'Dave')
+        // await contract.submitTransaction('writeData', 'CAR12', 'Honda');
         // console.log('Transaction has been submitted');
-        // await contract.submitTransaction('writeData','verifiedDomains',JSON.stringify(verifiedDomains));
-        // console.log('verifiedDomains Pushed in blockchain');
-        // await contract.submitTransaction('writeData','UserDomains',JSON.stringify(UserDomains));
-        // console.log('UserDomains Pushed in blockchain');
-        // await contract.submitTransaction('writeData','allVerifiedDomains',JSON.stringify(allVerifiedDomains));
-        // console.log('allVerifiedDomains Pushed in blockchain');
-        // await contract.submitTransaction('writeData','verifiableDomains',JSON.stringify(verifiableDomains));
-        console.log('verifiableDomains Pushed in blockchain');
-        sendProposal(proposal, async (response)=>{
-            await gateway.disconnect();
-        })
 
-        // let response = await contract.submitTransaction('revoke','domain1','U2')
-        // console.log(response.toString('ascii'))
+
+
+
+        const privateKeyPath = path.resolve(__dirname, '../javascript/wallet/user1/058776f51f92cff9ab463e6e6a3c8e4275d6c89aba427669e83f9f06cdf43b99-priv');
+        const privateKeyPem = fs.readFileSync(privateKeyPath, 'utf8');
+        const certPath = path.resolve(__dirname, '../javascript/wallet/user1/user1');
+        const certPem =JSON.parse( fs.readFileSync(certPath, 'utf8')).enrollment.identity.certificate;
+
+        // console.log(privateKeyPem);
+        const mspId = 'Org1MSP';
+        let channel = network.getChannel('mychannel')
+        // let user = network.getUser('appUser')
+        let client = gateway.client
+
+        const ordersForCurve = {
+            'secp256r1': {
+                'halfOrder': elliptic.curves.p256.n.shrn(1),
+                'order': elliptic.curves.p256.n
+            },
+            'secp384r1': {
+                'halfOrder': elliptic.curves.p384.n.shrn(1),
+                'order': elliptic.curves.p384.n
+            }
+        };
+
+        function _preventMalleability(sig, curveParams) {
+            const halfOrder = ordersForCurve[curveParams.name].halfOrder;
+            if (!halfOrder) {
+                throw new Error('Can not find the half order needed to calculate "s" value for immalleable signatures. Unsupported curve name: ' + curveParams.name);
+            }
+        
+            // in order to guarantee 's' falls in the lower range of the order, as explained in the above link,
+            // first see if 's' is larger than half of the order, if so, it needs to be specially treated
+            if (sig.s.cmp(halfOrder) === 1) { // module 'bn.js', file lib/bn.js, method cmp()
+                // convert from BigInteger used by jsrsasign Key objects and bn.js used by elliptic Signature objects
+                const bigNum = ordersForCurve[curveParams.name].order;
+                sig.s = bigNum.sub(sig.s);
+            }
+        
+            return sig;
+        }
+        function sign(privateKey, proposalBytes, algorithm, keySize) {
+            const hashAlgorithm = algorithm.toUpperCase();
+            const hashFunction = hash[`${hashAlgorithm}_${keySize}`];
+            const ecdsaCurve = elliptic.curves[`p${keySize}`];
+            const ecdsa = new EC(ecdsaCurve);
+            const key = KEYUTIL.getKey(privateKey);
+        
+            const signKey = ecdsa.keyFromPrivate(key.prvKeyHex, 'hex');
+            const digest = hashFunction(proposalBytes);
+        
+            let sig = ecdsa.sign(Buffer.from(digest, 'hex'), signKey);
+            sig = _preventMalleability(sig, key.ecparams);
+        
+            return Buffer.from(sig.toDER());
+        }
+
+        function signProposal(proposalBytes) {
+            const signature = sign(privateKeyPem, proposalBytes, 'sha2', 256);
+            const signedProposal = {signature, proposal_bytes: proposalBytes};
+            return signedProposal;
+        }
+        async function transactionMonitor(txId, eh, t) {
+            return new Promise((resolve, reject) => {
+                const handle = setTimeout(() => {
+                    t.fail('Timeout - Failed to receive event for txId ' + txId);
+                    eh.disconnect(); // shutdown
+                    throw new Error('TIMEOUT - no event received');
+                }, 60000);
+        
+                eh.registerTxEvent(txId, (txnid, code, block_num) => {
+                    clearTimeout(handle);
+                    t.pass('Event has been seen with transaction code:' + code + ' for transaction id:' + txnid + ' for block_num:' + block_num);
+                    resolve('Got the replayed transaction');
+                }, (error) => {
+                    clearTimeout(handle);
+                    t.fail('Failed to receive event replay for Event for transaction id ::' + txId);
+                    reject(error);
+                }, {disconnect: true}
+                    // Setting the disconnect to true as we do not want to use this
+                    // ChannelEventHub after the event we are looking for comes in
+                );
+                t.pass('Successfully registered event for ' + txId);
+                const unsignedEvent = eh.generateUnsignedRegistration({
+                    certificate: certPem,
+                    mspId,
+                });
+                const signedProposal = signProposal(unsignedEvent);
+                const signedEvent = {
+                    signature: signedProposal.signature,
+                    payload: signedProposal.proposal_bytes,
+                };
+                eh.connect({signedEvent});
+                t.pass('Successfully called connect on ' + eh.getPeerAddr());
+            });
+        }
+
+        const transactionProposalReq = {
+			fcn: 'createCert',
+			args: ['Cert5','xyz5','afghanistan','xyz5.com'],
+			chaincodeId: 'fabcar',
+			channelId: 'mychannel',
+		};
+        const {proposal, txId} = channel.generateUnsignedProposal(transactionProposalReq, mspId, certPem);
+		const signedProposal = signProposal(proposal.toBuffer());
+        
+        // console.log(channel.getPeers())
+        const peer = channel.getPeer('peer0.org1.example.com:7051');
+		const targets = [peer];
+        // console.log(targets)
+		const sendSignedProposalReq = {signedProposal, targets};
+		const proposalResponses = await channel.sendSignedProposal(sendSignedProposalReq);
+        // console.log(`proposalResponse : ${proposalResponses}`)
+        console.log(proposalResponses)
+        let readpayload = proposalResponses[0].response.payload
+        console.log( `readPayload : ${Buffer.from(readpayload).toString('ascii')}`)
+        let writepayload = proposalResponses[0].payload
+        console.log( `writePayload : ${Buffer.from(writepayload).toString('ascii')}`)
+
+        const commitReq = {
+			proposalResponses,
+			proposal,
+		};
+        const commitProposal = channel.generateUnsignedTransaction(commitReq);
+
+        const signedCommitProposal = signProposal(commitProposal.toBuffer());
+
+		const response = await channel.sendSignedTransaction({
+			signedProposal: signedCommitProposal,
+			request: commitReq,
+		});
+        console.log(response)
+
+
+		// const eh = channel.newChannelEventHub(peer);
+		// // await transactionMonitor(txId.getTransactionID(), eh);
+
+
+
+
 
         // Disconnect from the gateway.
-        // await gateway.disconnect();
+        await gateway.disconnect();
 
     } catch (error) {
         console.error(`Failed to submit transaction: ${error}`);
